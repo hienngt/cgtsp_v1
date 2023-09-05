@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pandas as pd
 
 from scipy.spatial.distance import pdist, squareform
@@ -79,13 +81,14 @@ data = DataUtil(file_path=str(BASE_DIR) + file_test)
 
 
 class Graph:
-    def __init__(self, distance_df: pd.DataFrame|None=data.distance_df,
-                 corr_df: pd.DataFrame|None=data.corr_df):
+    def __init__(self, distance_df: pd.DataFrame | None = data.distance_df,
+                 corr_df: pd.DataFrame | None = data.corr_df):
         self.distance_df = distance_df
         self.corr_df = corr_df
 
         self.nodes = list(range(1, len(self.distance_df) + 1))
-        self.edges = [(self.distance_df.columns[i], self.distance_df.columns[j]) for i in range(len(self.distance_df.columns))
+        self.edges = [(self.distance_df.columns[i], self.distance_df.columns[j]) for i in
+                      range(len(self.distance_df.columns))
                       for j in range(i + 1, len(self.distance_df.columns)) if (self.distance_df.iloc[i, j] > 0)]
 
         self.num_nodes = len(self.nodes)

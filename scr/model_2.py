@@ -1,8 +1,7 @@
-from t1 import TSP
 from model_1 import tsp
 
-import numpy as np
 import random
+
 
 def create_population(num_cities, pop_size, start_point=0):
     """
@@ -16,6 +15,25 @@ def create_population(num_cities, pop_size, start_point=0):
         population.append(tour1 + tour2)
     return population
 
+
+def create_population_v2_cluster(num_cities, cluster, corr_df, pop_size, start_point=0):
+    """
+    Create a population of tours.
+    """
+    population = []
+
+    for i in range(cluster):
+
+
+
+    for i in range(pop_size):
+        tour1 = [start_point]
+        tour2 = list(range(1, num_cities))
+        random.shuffle(tour2)
+        population.append(tour1 + tour2)
+    return population
+
+
 def calculate_fitness(tour, distances):
     """
     Calculate the fitness of a tour.
@@ -27,6 +45,7 @@ def calculate_fitness(tour, distances):
         city_j = tour[j]
         fitness += distances[city_i][city_j]
     return fitness
+
 
 def select_parents(population, distances):
     """
@@ -42,6 +61,7 @@ def select_parents(population, distances):
     idx2 = tournament[fitnesses.index(min(fitnesses))]
 
     return idx1, idx2
+
 
 def crossover(parent1, parent2):
     """
@@ -63,6 +83,7 @@ def crossover(parent1, parent2):
 
     return child
 
+
 def mutate(tour):
     """
     Mutate a tour by swapping two cities.
@@ -71,6 +92,7 @@ def mutate(tour):
     idx2 = random.randint(1, len(tour) - 1)
 
     tour[idx1], tour[idx2] = tour[idx2], tour[idx1]
+
 
 def genetic_algorithm(distances, pop_size=100, num_generations=1000):
     """
@@ -81,6 +103,8 @@ def genetic_algorithm(distances, pop_size=100, num_generations=1000):
     # Create initial population
     population = create_population(num_cities, pop_size)
 
+    fitnesses = [calculate_fitness(tour, distances) for tour in population]
+    min_fit = [min(fitnesses)]
     # Iterate over generations
     for gen in range(num_generations):
         # Select parents
@@ -96,11 +120,17 @@ def genetic_algorithm(distances, pop_size=100, num_generations=1000):
         fitnesses = [calculate_fitness(tour, distances) for tour in population]
         worst_idx = fitnesses.index(max(fitnesses))
         population[worst_idx] = child
+        min_fit.append(min(fitnesses))
 
     # Return best individual
     fitnesses = [calculate_fitness(tour, distances) for tour in population]
     best_idx = fitnesses.index(min(fitnesses))
 
-    return population[best_idx], min(fitnesses)
+    return population[best_idx], min(fitnesses), min_fit
 
-a = genetic_algorithm(distances=tsp.graph.distance_df)
+
+a = genetic_algorithm(distances=tsp.graph.distance_df, num_generations=2000)
+
+import matplotlib.pyplot as plt
+plt.plot(a[2])
+plt.show()
