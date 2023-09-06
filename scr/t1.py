@@ -139,3 +139,5 @@ class Tour:
         Check if the tour is eligible for TSP.
         """
         pass
+
+

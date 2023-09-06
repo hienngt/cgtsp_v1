@@ -1,6 +1,17 @@
 from model_1 import tsp
 
 import random
+import pandas as pd
+from itertools import chain
+
+distance_df = pd.DataFrame(index=range(tsp.graph.num_nodes), columns=range(tsp.graph.num_nodes))
+
+
+num_clusters = tsp.graph.num_clusters
+num_subclusters = tsp.graph.num_subclusters
+
+corr_df = tsp.graph.corr_df
+cluster_df = tsp.graph.cluster_df
 
 
 def create_population(num_cities, pop_size, start_point=0):
@@ -16,21 +27,27 @@ def create_population(num_cities, pop_size, start_point=0):
     return population
 
 
-def create_population_v2_cluster(num_cities, cluster, corr_df, pop_size, start_point=0):
+def create_population_v2_cluster(pop_size, start_point=None):
     """
     Create a population of tours.
     """
+    if start_point is None:
+        start_point = [0]
     population = []
 
-    for i in range(cluster):
-
-
-
     for i in range(pop_size):
-        tour1 = [start_point]
-        tour2 = list(range(1, num_cities))
-        random.shuffle(tour2)
-        population.append(tour1 + tour2)
+        tour_cluster = []
+        for c in range(2, num_clusters + 1):
+            num_subcluster_in_cluster = cluster_df.loc[c].index.get_level_values('subcluster_id').nunique()
+            # print(f'{num_subcluster_in_cluster=}')
+
+            df_inside_cluster = corr_df.query(f'cluster_id == {c}').reset_index(drop=True)
+            tour = df_inside_cluster['index'].to_list()
+            random.shuffle(tour)
+            tour_cluster.append(tour)
+        random.shuffle(tour_cluster)
+
+        population.append(start_point + list(chain(*tour_cluster)))
     return population
 
 
@@ -101,7 +118,7 @@ def genetic_algorithm(distances, pop_size=100, num_generations=1000):
     num_cities = len(distances)
 
     # Create initial population
-    population = create_population(num_cities, pop_size)
+    population = create_population_v2_cluster(pop_size)
 
     fitnesses = [calculate_fitness(tour, distances) for tour in population]
     min_fit = [min(fitnesses)]
@@ -129,8 +146,15 @@ def genetic_algorithm(distances, pop_size=100, num_generations=1000):
     return population[best_idx], min(fitnesses), min_fit
 
 
-a = genetic_algorithm(distances=tsp.graph.distance_df, num_generations=2000)
+def test(num_generations = 1000, pop_size=100):
+    a = genetic_algorithm(distances=tsp.graph.distance_df, num_generations=num_generations, pop_size=pop_size)
 
-import matplotlib.pyplot as plt
-plt.plot(a[2])
-plt.show()
+    import csv
+    with open('my_list.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(a[0])
+
+    import matplotlib.pyplot as plt
+
+    plt.plot(a[2])
+    plt.show()

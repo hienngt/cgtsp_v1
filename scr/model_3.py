@@ -2,7 +2,18 @@ from t1 import Graph
 # from model_2 import a
 import pandas as pd
 
-tour = [0, 11, 10, 12, 9, 56, 55, 52, 51, 49, 50, 21, 19, 17, 43, 44, 42, 41, 46, 47, 45, 48, 39, 37, 40, 38, 35, 33, 34, 36, 23, 22, 24, 31, 29, 32, 30, 26, 28, 25, 27, 18, 20, 7, 8, 5, 6, 15, 13, 4, 3, 1, 2, 14, 16, 54, 53, 58, 59, 60, 57, 62, 63, 64, 61]
+
+import csv
+with open('my_list.csv', newline='') as file:
+    reader = csv.reader(file)
+    my_list = list(reader)
+print(my_list)
+
+from itertools import chain
+
+tour = [int(i) for i in list(chain(*my_list))]
+
+print(tour)
 
 df = pd.DataFrame(tour, columns=['index'])
 corr_df = Graph().corr_df

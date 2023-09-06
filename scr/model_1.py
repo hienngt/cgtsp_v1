@@ -10,17 +10,20 @@ distance_df = pd.DataFrame(index=range(cgtsp.graph.num_nodes), columns=range(cgt
 num_clusters = cgtsp.graph.num_clusters
 num_subclusters = cgtsp.graph.num_subclusters
 
+corr_df = cgtsp.graph.corr_df
+cluster_df = cgtsp.graph.cluster_df
+
 p1 = cgtsp.upper_bound
 p2 = cgtsp.upper_bound * num_subclusters
 
 # tsp_constraint
 for c in range(1, num_clusters+1):
-    num_subcluster_in_cluster = cgtsp.graph.cluster_df.loc[c].index.get_level_values('subcluster_id').nunique()
+    num_subcluster_in_cluster = cluster_df.loc[c].index.get_level_values('subcluster_id').nunique()
     print(f'{num_subcluster_in_cluster=}')
     for s in range(1, num_subcluster_in_cluster+1):
-        df_inside_subcluster = cgtsp.graph.corr_df.query(f'cluster_id == {c} and subcluster_id == {s}').reset_index(drop=True)
-        df_outside_subcluster = cgtsp.graph.corr_df.query(f'cluster_id == {c} and subcluster_id != {s}').reset_index(drop=True)
-        df_outside_cluster = cgtsp.graph.corr_df.query(f'cluster_id != {c}').reset_index(drop=True)
+        df_inside_subcluster = corr_df.query(f'cluster_id == {c} and subcluster_id == {s}').reset_index(drop=True)
+        df_outside_subcluster = corr_df.query(f'cluster_id == {c} and subcluster_id != {s}').reset_index(drop=True)
+        df_outside_cluster = corr_df.query(f'cluster_id != {c}').reset_index(drop=True)
 
         for i in range(len(df_inside_subcluster)):
             if i == len(df_inside_subcluster) - 1:
