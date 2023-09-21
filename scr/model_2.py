@@ -37,8 +37,6 @@ def create_population_v2_cluster(pop_size, start_point=None):
     for i in range(pop_size):
         tour_cluster = []
         for c in range(2, num_clusters + 1):
-            # num_subcluster_in_cluster = cluster_df.loc[c].index.get_level_values('subcluster_id').nunique()
-
             df_inside_cluster = corr_df.query(f'cluster_id == {c}').reset_index(drop=True)
             tour = df_inside_cluster['index'].to_list()
             random.shuffle(tour)
@@ -125,12 +123,6 @@ def crossover(parent1, parent2):
                     child[j] = parent2[i]
                     break
     return child
-    # child_fit = calculate_fitness(child, distances=distance)
-    #
-    # if child_fit < min(parent1_fit, parent2_fit):
-    #     return child, child_fit
-    # else:
-    #     return None, None
 
 
 def mutate(tour):
@@ -141,6 +133,7 @@ def mutate(tour):
     idx2 = random.randint(1, len(tour) - 1)
 
     tour[idx1], tour[idx2] = tour[idx2], tour[idx1]
+    return tour
 
 def smart_mutate(tour, mutation_rate=2):
     """
@@ -154,6 +147,7 @@ def smart_mutate(tour, mutation_rate=2):
             mutated_tour[i], mutated_tour[j] = mutated_tour[j], mutated_tour[i]
 
     return mutated_tour
+
 
 def genetic_algorithm(distances, pop_size=100, num_generations=1000):
     """
@@ -174,24 +168,24 @@ def genetic_algorithm(distances, pop_size=100, num_generations=1000):
         parent1, parent1_fit, parent2, parent2_fit = select_parents(population, distances)
 
         # Crossover to create child
-        child = multi_point_crossover(parent1, parent2)
-
+        # child = multi_point_crossover(parent1, parent2)
+        child = crossover(parent1, parent2)
         # Mutate child
-        child = smart_mutate(tour=child)
+        # child = smart_mutate(tour=child)
+        child = mutate(tour=child)
+        # child, child_fit = two_opt(child, distances)
+        child_fit = calculate_fitness(child, distances)
 
-        child, child_fit = two_opt(child, distances)
-        # child_fit = calculate_fitness(child, distances)
-
-        if child_fit < min(parent1_fit, parent2_fit):
+        # if child_fit < min(parent1_fit, parent2_fit):
             # Replace worst individual with child
-            worst_idx = fitnesses.index(max(fitnesses))
-            population[worst_idx] = child
-            fitnesses[worst_idx] = child_fit
-            if child_fit < min_fit_curr:
-                min_fit.append(child_fit)
-                min_fit_curr = child_fit
-            else:
-                min_fit.append(min_fit_curr)
+        worst_idx = fitnesses.index(max(fitnesses))
+        population[worst_idx] = child
+        fitnesses[worst_idx] = child_fit
+        if child_fit < min_fit_curr:
+            min_fit.append(child_fit)
+            min_fit_curr = child_fit
+        else:
+            min_fit.append(min_fit_curr)
 
     # Return best individual
     best_idx = fitnesses.index(min(fitnesses))
@@ -199,22 +193,22 @@ def genetic_algorithm(distances, pop_size=100, num_generations=1000):
     return population[best_idx], min(fitnesses), min_fit
 
 
-def test(num_generations=10, pop_size=1_00):
+def test(num_generations=15_000, pop_size=1_00):
     a = genetic_algorithm(distances=tsp.graph.distance_df, num_generations=num_generations, pop_size=pop_size)
 
     import csv
     with open('my_list.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(a[0])
-    return a
-    # import matplotlib.pyplot as plt
-    #
-    # plt.plot(a[2])
-    # plt.show()
+    import matplotlib.pyplot as plt
 
+    plt.plot(a[2])
+    plt.show()
+    return a
 
 a = test()
-
+# a = test()
+#
 # import matplotlib.pyplot as plt
 #
 # plt.plot(a[2])
