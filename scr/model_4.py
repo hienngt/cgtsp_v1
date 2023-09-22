@@ -1,3 +1,5 @@
+import itertools
+
 from model_1 import tsp
 
 import random
@@ -30,7 +32,7 @@ def create_population_v2_cluster(pop_size=100, start_point=None):
             tour_cluster.append(tour)
         random.shuffle(tour_cluster)
 
-        population_lst.append(start_point + tour_cluster + [start_point + list(chain(*tour_cluster))])
+        population_lst.append([start_point] + tour_cluster + [start_point + list(chain(*tour_cluster))])
 
     population = pd.DataFrame(population_lst)
     last_column_index = population.columns[-1]
@@ -51,23 +53,18 @@ def calculate_fitness(tour, distances):
     return fitness
 
 
-population = create_population_v2_cluster()
-distances=tsp.graph.distance_df
-population['fitness'] = population['tour'].apply(lambda x: calculate_fitness(x, distances))
-
-
 def select_parents(population):
     """
     Select two parents from the population using tournament selection.
     """
     tournament_size = 3
     tournament = population.sample(tournament_size)
-    idx1 = tournament.loc[tournament['fitness'].idxmin()]
+    parent1 = tournament.loc[tournament['fitness'].idxmin()]
 
     tournament = population.sample(tournament_size)
-    idx2 = tournament.loc[tournament['fitness'].idxmin()]
+    parent2 = tournament.loc[tournament['fitness'].idxmin()]
 
-    return idx1, idx2
+    return parent1, parent2
 
 
 def crossover(parent1, parent2):
@@ -76,17 +73,83 @@ def crossover(parent1, parent2):
     """
     len_parent = parent1.shape[0]
 
+    child = [[-1]] * (len(parent1) - 2)
+
     start_idx = random.randint(0, len_parent - 3)
     end_idx = random.randint(start_idx + 1, len_parent - 2)
 
-    if start_idx == 0:
-        if end_idx == len_parent - 2:
-            child = parent1[start_idx:end_idx]
-        else:
-            child = pd.concat([parent1[start_idx:end_idx], parent1[end_idx:len_parent - 2]])
-    else:
-        child = pd.concat([parent2[0:start_idx], parent1[start_idx:end_idx], parent2[end_idx:len_parent - 2]])
+    child[start_idx:end_idx] = parent1[start_idx:end_idx]
 
+    for i in range(len_parent - 2):
+        if set(parent2[i]) not in [set(tuple(lst)) for lst in child]:
+            for j in range(len(child)):
+                if child[j] == [-1]:
+                    child[j] = parent2[i]
+                    break
+
+    # child.append(list(itertools.chain.from_iterable(child)))
     return child
 
 
+def mutate(child):
+    """
+    Mutate a tour by swapping two cities.
+    """
+    random_cluster = random.randint(1, len(child) - 1)
+    cluster = child[random_cluster]
+    idx1 = random.randint(0, len(cluster) - 1)
+    idx2 = random.randint(0, len(cluster) - 1)
+
+    cluster[idx1], cluster[idx2] = cluster[idx2], cluster[idx1]
+    child[random_cluster] = cluster
+    return child
+
+
+def genetic_algorithm(distances, pop_size=100, num_generations=1000):
+    """
+    Solve the TSP using a genetic algorithm.
+    """
+    # Create initial population
+    population = create_population_v2_cluster()
+    distances=tsp.graph.distance_df
+    population['fitness'] = population['tour'].apply(lambda x: calculate_fitness(x, distances))
+
+
+    min_fit_curr = population['fitness'].min()
+    min_fit = [min_fit_curr]
+
+    worst_idx = population['fitness'].idxmax()
+    max_fit = population.loc[worst_idx]['fitness']
+    # Iterate over generations
+    for gen in range(num_generations):
+        # Select parents
+        parent1, parent2 = select_parents(population)
+
+        # Crossover to create child
+        # child = multi_point_crossover(parent1, parent2)
+        child = crossover(parent1, parent2)
+        # Mutate child
+        # child = smart_mutate(tour=child)
+        child = mutate(child)
+        child.append(list(itertools.chain.from_iterable(child)))
+        child_fit = calculate_fitness(child[-1], distances)
+        child.append(child_fit)
+        worst_idx = population['fitness'].idxmax()
+        fitness_max = population.loc[worst_idx]['fitness']
+
+        if child_fit < fitness_max:
+        # Replace worst individual with child
+        # worst_idx = population['fitness'].idxmax()
+        population.loc[worst_idx] = child
+        population.append(pd.Series(child, index=population.columns), ignore_index=True)
+        population['fitness'].loc[worst_idx] = child_fit
+        if child_fit < min_fit_curr:
+            min_fit.append(child_fit)
+            min_fit_curr = child_fit
+        else:
+            min_fit.append(min_fit_curr)
+
+    # Return best individual
+    best_idx = fitnesses.index(min(fitnesses))
+
+    return population[best_idx], min(fitnesses), min_fit
