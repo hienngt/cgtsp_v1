@@ -1,4 +1,5 @@
 from t1 import DataUtil, Graph, CGTSP, TSP_constraint, TSP, Tour
+from params import upper_bound_default
 
 import pandas as pd
 import matplotlib as plt
@@ -13,7 +14,8 @@ num_subclusters = cgtsp.graph.num_subclusters
 corr_df = cgtsp.graph.corr_df
 cluster_df = cgtsp.graph.cluster_df
 
-upper_bound = num_subclusters * cgtsp.graph.distance_df.max().max()
+# upper_bound = num_subclusters * cgtsp.graph.distance_df.max().max()
+upper_bound = upper_bound_default
 p1 = upper_bound
 p2 = upper_bound * num_subclusters
 

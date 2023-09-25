@@ -44,6 +44,77 @@ def create_population_v3_subcluster(pop_size=100, start_point=None):
     return population
 
 
+def circular_shif(tour, random_number):
+    if random_number in tour:
+        shift_index = tour.index(random_number)
+        shifted_tour = tour[shift_index:] + tour[:shift_index]
+        # print(shifted_tour)
+        return shifted_tour
+
+
+def create_population_v3_subcluster_v2(pop_size=100, start_point=None):
+    """
+    Create a population of tours.
+    """
+    if start_point is None:
+        start_point = [0]
+    population_lst = []
+
+    corr_df_2 = corr_df.query(f'index != 0').reset_index(drop=True)
+    for i in range(pop_size):
+        tour_cluster = []
+        for c in range(1, num_clusters + 1):
+            df_inside_cluster = corr_df_2.query(f'cluster_id == {c}').reset_index(drop=True)
+            num_subclusters = df_inside_cluster['subcluster_id'].nunique()
+            for s in range(1, num_subclusters + 1):
+                df_inside_subcluster = df_inside_cluster.query(f'subcluster_id == {s}').reset_index(drop=True)
+                tour = df_inside_subcluster['index'].to_list()
+                random_number = random.choice(tour)
+                tour_cluster.append(circular_shif(tour, random_number))
+        random.shuffle(tour_cluster)
+
+        population_lst.append([start_point] + tour_cluster + [start_point + list(chain(*tour_cluster))])
+
+    population = pd.DataFrame(population_lst)
+    last_column_index = population.columns[-1]
+    population.rename(columns={last_column_index: 'tour'}, inplace=True)
+    return population
+
+
+
+def create_population_v3_subcluster_v3(pop_size=100, start_point=None):
+    """
+    Create a population of tours.
+    """
+    if start_point is None:
+        start_point = [0]
+    population_lst = []
+
+    corr_df_2 = corr_df.query(f'index != 0').reset_index(drop=True)
+    for i in range(pop_size):
+        tour_cluster = []
+        for c in range(1, num_clusters + 1):
+            df_inside_cluster = corr_df_2.query(f'cluster_id == {c}').reset_index(drop=True)
+            num_subclusters = df_inside_cluster['subcluster_id'].nunique()
+            if num_subclusters > 0:
+                tour_subcluster = []
+                for s in range(1, num_subclusters + 1):
+                    df_inside_subcluster = df_inside_cluster.query(f'subcluster_id == {s}').reset_index(drop=True)
+                    tour = df_inside_subcluster['index'].to_list()
+                    random_number = random.choice(tour)
+                    tour_subcluster.append(circular_shif(tour, random_number))
+                random.shuffle(tour_subcluster)
+                tour_cluster.append(tour_subcluster)
+        random.shuffle(tour_cluster)
+
+        population_lst.append([start_point] + tour_cluster + [start_point + list(chain(*list(chain(*tour_cluster))))])
+
+    population = pd.DataFrame(population_lst)
+    last_column_index = population.columns[-1]
+    population.rename(columns={last_column_index: 'tour'}, inplace=True)
+    return population
+
+
 def calculate_fitness(tour, distances):
     """
     Calculate the fitness of a tour.
@@ -95,19 +166,59 @@ def crossover(parent1, parent2):
     return child
 
 
+
+def crossover_v2(parent1, parent2):
+    """
+    Perform crossover between two parents to create a child.
+    """
+    len_parent = parent1.shape[0]
+
+    child = [[-1]] * (len(parent1) - 2)
+
+    start_idx = random.randint(0, len_parent - 3)
+    end_idx = random.randint(start_idx + 1, len_parent - 2)
+
+    child[start_idx:end_idx] = parent1[start_idx:end_idx]
+
+    for i in range(len_parent - 2):
+        if parent2[i] == [0]:
+            child[i] = [0]
+        elif parent2[i] not in ([-1]):
+            if set(list(chain(*parent2[i]))) not in [set(list(chain(*lst))) if lst not in ([-1], [0]) else lst for lst in child]:
+                for j in range(len(child)):
+                    if child[j] == [-1]:
+                        child[j] = parent2[i]
+                        break
+
+    # child.append(list(itertools.chain.from_iterable(child)))
+    return child
+
+
 def mutate(child):
     """
     Mutate a tour by swapping two cities.
     """
-    random_subcluster = random.randint(1, len(child) - 1)
-    cluster = child[random_subcluster]
-    idx1 = random.randint(0, len(cluster) - 1)
-    idx2 = random.randint(0, len(cluster) - 1)
-
-    cluster[idx1], cluster[idx2] = cluster[idx2], cluster[idx1]
-    child[random_subcluster] = cluster
+    mutate_rate = random.randint(1, len(child) - 1)
+    for i in range(mutate_rate):
+        random_subcluster = random.randint(1, len(child) - 1)
+        subcluster = child[random_subcluster]
+        random_number = random.choice(subcluster)
+        child[random_subcluster] = circular_shif(subcluster, random_number)
     return child
 
+def mutate_v2(child):
+    mutate_rate = random.randint(1, len(child) - 1)
+    for i in range(mutate_rate):
+        try:
+            random_cluster = random.randint(1, len(child) - 1)
+            cluster = child[random_cluster]
+            random_subcluster = random.randint(1, len(cluster) - 1)
+            subcluster = cluster[random_subcluster]
+            random_number = random.choice(subcluster)
+            child[random_cluster][random_subcluster] = circular_shif(subcluster, random_number)
+        except:
+            pass
+    return child
 
 def smart_mutate(child, mutation_rate):
     """
@@ -128,7 +239,7 @@ def genetic_algorithm(pop_size=100, num_generations=1000):
     Solve the TSP using a genetic algorithm.
     """
     # Create initial population
-    population = create_population_v3_subcluster(pop_size=pop_size)
+    population = create_population_v3_subcluster_v3(pop_size=pop_size)
     distances = tsp.graph.distance_df
     population['fitness'] = population['tour'].apply(lambda x: calculate_fitness(x, distances))
 
@@ -143,15 +254,24 @@ def genetic_algorithm(pop_size=100, num_generations=1000):
         # Select parents
         parent1, parent2 = select_parents(population)
 
-        # Crossover to create child
-        child = crossover(parent1, parent2)
-        # Mutate child
-        # child = mutate(child)
+        i = 0
+        while True:
+            # Crossover to create child
+            child = crossover_v2(parent1, parent2)
+            # Mutate child
+            child = mutate_v2(child)
 
-        child = smart_mutate(child, mutation_rate=3)
-        child.append(list(itertools.chain.from_iterable(child)))
-        child_fit = calculate_fitness(child[-1], distances)
-        child.append(child_fit)
+            # child = smart_mutate(child, mutation_rate=3)
+            child.append([0] + list(itertools.chain.from_iterable(list(itertools.chain.from_iterable(child[1:])))))
+            child_fit = calculate_fitness(child[-1], distances)
+            child.append(child_fit)
+
+            if child_fit < max(parent1['fitness'], parent2['fitness']):
+                break
+            else:
+                i = i + 1
+            if i == 5:
+                break
 
         if child_fit < fitness_max:
             population.loc[len(population)] = child

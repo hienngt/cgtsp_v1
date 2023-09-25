@@ -47,3 +47,5 @@ def calculate_fitness(tour, distances):
 
 tour_len = calculate_fitness(final_tour, Graph().distance_df)
 
+a = Graph().distance_df
+
