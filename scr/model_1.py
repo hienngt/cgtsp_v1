@@ -13,7 +13,7 @@ num_subclusters = cgtsp.graph.num_subclusters
 corr_df = cgtsp.graph.corr_df
 cluster_df = cgtsp.graph.cluster_df
 
-upper_bound = num_subclusters * max(cgtsp.graph.distance_df)
+upper_bound = num_subclusters * cgtsp.graph.distance_df.max().max()
 p1 = upper_bound
 p2 = upper_bound * num_subclusters
 

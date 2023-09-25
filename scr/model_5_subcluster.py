@@ -15,7 +15,7 @@ corr_df = tsp.graph.corr_df
 cluster_df = tsp.graph.cluster_df
 
 
-def create_population_v2_cluster(pop_size=100, start_point=None):
+def create_population_v3_subcluster(pop_size=100, start_point=None):
     """
     Create a population of tours.
     """
@@ -23,13 +23,17 @@ def create_population_v2_cluster(pop_size=100, start_point=None):
         start_point = [0]
     population_lst = []
 
+    corr_df_2 = corr_df.query(f'index != 0').reset_index(drop=True)
     for i in range(pop_size):
         tour_cluster = []
-        for c in range(2, num_clusters + 1):
-            df_inside_cluster = corr_df.query(f'cluster_id == {c}').reset_index(drop=True)
-            tour = df_inside_cluster['index'].to_list()
-            random.shuffle(tour)
-            tour_cluster.append(tour)
+        for c in range(1, num_clusters + 1):
+            df_inside_cluster = corr_df_2.query(f'cluster_id == {c}').reset_index(drop=True)
+            num_subclusters = df_inside_cluster['subcluster_id'].nunique()
+            for s in range(1, num_subclusters + 1):
+                df_inside_subcluster = df_inside_cluster.query(f'subcluster_id == {s}').reset_index(drop=True)
+                tour = df_inside_subcluster['index'].to_list()
+                random.shuffle(tour)
+                tour_cluster.append(tour)
         random.shuffle(tour_cluster)
 
         population_lst.append([start_point] + tour_cluster + [start_point + list(chain(*tour_cluster))])
@@ -95,54 +99,67 @@ def mutate(child):
     """
     Mutate a tour by swapping two cities.
     """
-    random_cluster = random.randint(1, len(child) - 1)
-    cluster = child[random_cluster]
+    random_subcluster = random.randint(1, len(child) - 1)
+    cluster = child[random_subcluster]
     idx1 = random.randint(0, len(cluster) - 1)
     idx2 = random.randint(0, len(cluster) - 1)
 
     cluster[idx1], cluster[idx2] = cluster[idx2], cluster[idx1]
-    child[random_cluster] = cluster
+    child[random_subcluster] = cluster
     return child
 
 
-def genetic_algorithm(distances, pop_size=100, num_generations=1000):
+def smart_mutate(child, mutation_rate):
+    """
+    Mutate a tour by swapping two cities with a probability determined by the mutation rate.
+    """
+    for cluster_idx in range(1, len(child)):
+        cluster = child[cluster_idx]
+        for city_idx in range(len(cluster)):
+            if random.random() < mutation_rate:
+                swap_idx = random.randint(0, len(cluster) - 1)
+                cluster[city_idx], cluster[swap_idx] = cluster[swap_idx], cluster[city_idx]
+        child[cluster_idx] = cluster
+    return child
+
+
+def genetic_algorithm(pop_size=100, num_generations=1000):
     """
     Solve the TSP using a genetic algorithm.
     """
     # Create initial population
-    population = create_population_v2_cluster()
-    distances=tsp.graph.distance_df
+    population = create_population_v3_subcluster(pop_size=pop_size)
+    distances = tsp.graph.distance_df
     population['fitness'] = population['tour'].apply(lambda x: calculate_fitness(x, distances))
-
 
     min_fit_curr = population['fitness'].min()
     min_fit = [min_fit_curr]
 
     worst_idx = population['fitness'].idxmax()
-    max_fit = population.loc[worst_idx]['fitness']
+    fitness_max = population.loc[worst_idx]['fitness']
+
     # Iterate over generations
     for gen in range(num_generations):
         # Select parents
         parent1, parent2 = select_parents(population)
 
         # Crossover to create child
-        # child = multi_point_crossover(parent1, parent2)
         child = crossover(parent1, parent2)
         # Mutate child
-        # child = smart_mutate(tour=child)
-        child = mutate(child)
+        # child = mutate(child)
+
+        child = smart_mutate(child, mutation_rate=3)
         child.append(list(itertools.chain.from_iterable(child)))
         child_fit = calculate_fitness(child[-1], distances)
         child.append(child_fit)
-        worst_idx = population['fitness'].idxmax()
-        fitness_max = population.loc[worst_idx]['fitness']
 
         if child_fit < fitness_max:
-        # Replace worst individual with child
-        # worst_idx = population['fitness'].idxmax()
-        population.loc[worst_idx] = child
-        population.append(pd.Series(child, index=population.columns), ignore_index=True)
-        population['fitness'].loc[worst_idx] = child_fit
+            population.loc[len(population)] = child
+            population = population.drop(worst_idx).reset_index(drop=True)
+
+            worst_idx = population['fitness'].idxmax()
+            fitness_max = population.loc[worst_idx]['fitness']
+
         if child_fit < min_fit_curr:
             min_fit.append(child_fit)
             min_fit_curr = child_fit
@@ -150,6 +167,21 @@ def genetic_algorithm(distances, pop_size=100, num_generations=1000):
             min_fit.append(min_fit_curr)
 
     # Return best individual
-    best_idx = fitnesses.index(min(fitnesses))
 
-    return population[best_idx], min(fitnesses), min_fit
+    return population.loc[population['fitness'].idxmin()], min_fit_curr, min_fit
+
+
+a = genetic_algorithm(100, 10_000)
+import csv
+
+with open('my_list.csv', 'w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerow(a[0]['tour'])
+
+import seaborn as sns
+
+# Plotting the list
+sns.lineplot(data=a[2])
+
+# Display the plot
+sns.plt.show()
