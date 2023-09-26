@@ -1,10 +1,12 @@
-import itertools
-
 from model_1 import tsp
 
 import random
 import pandas as pd
 from itertools import chain
+import csv
+
+import seaborn as sns
+from tqdm import tqdm
 
 distance_df = pd.DataFrame(index=range(tsp.graph.num_nodes), columns=range(tsp.graph.num_nodes))
 
@@ -19,8 +21,8 @@ def circular_shift(tour, random_number):
     if random_number in tour:
         shift_index = tour.index(random_number)
         shifted_tour = tour[shift_index:] + tour[:shift_index]
-        # print(shifted_tour)
         return shifted_tour
+
 
 def create_population_v3_subcluster_v3(pop_size=100, start_point=None):
     """
@@ -43,7 +45,8 @@ def create_population_v3_subcluster_v3(pop_size=100, start_point=None):
                 tour_subcluster = []
 
                 for s in subclusters:
-                    df_inside_subcluster = df_inside_cluster[df_inside_cluster['subcluster_id'] == s].reset_index(drop=True)
+                    df_inside_subcluster = df_inside_cluster[df_inside_cluster['subcluster_id'] == s].reset_index(
+                        drop=True)
                     tour = df_inside_subcluster['index'].tolist()
                     random_number = random.choice(tour)
                     tour_subcluster.append(circular_shift(tour, random_number))
@@ -72,7 +75,6 @@ def calculate_fitness(tour, distances):
         city_j = tour[j]
         fitness += distances[city_i][city_j]
     return fitness
-
 
 
 def select_parents(population):
@@ -120,23 +122,26 @@ def crossover_v2(parent1, parent2):
 
     return child
 
+
 def mutate_v2(child):
     mutate_rate = random.randint(1, len(child) - 1)
     i = 0
-    while i < mutate_rate:
-        random_cluster = random.randrange(1, len(child) - 1)
-        cluster = child[random_cluster]
-        random_subcluster = random.randrange(1, len(cluster) - 1)
-        subcluster = cluster[random_subcluster]
+    try:
+        while i < mutate_rate:
+            random_cluster = random.randrange(1, len(child) - 1)
+            cluster = child[random_cluster]
+            random_subcluster = random.randrange(1, len(cluster) - 1)
+            subcluster = cluster[random_subcluster]
 
-        if len(subcluster) > 1:
-            random_number = random.choice(subcluster)
-            child[random_cluster][random_subcluster] = circular_shift(subcluster, random_number)
-            i += 1
+            if len(subcluster) > 1:
+                random_number = random.choice(subcluster)
+                child[random_cluster][random_subcluster] = circular_shift(subcluster, random_number)
+                i += 1
+    except:
+        pass
 
     return child
 
-from tqdm import tqdm
 
 def genetic_algorithm(pop_size=100, num_generations=1000):
     """
@@ -165,7 +170,7 @@ def genetic_algorithm(pop_size=100, num_generations=1000):
             # Mutate child
             child = mutate_v2(child)
 
-            child.append([0] + list(itertools.chain.from_iterable(list(itertools.chain.from_iterable(child[1:])))))
+            child.append([0] + list(chain.from_iterable(list(chain.from_iterable(child[1:])))))
             child_fit = calculate_fitness(child[-1], distances)
             child.append(child_fit)
 
@@ -177,10 +182,8 @@ def genetic_algorithm(pop_size=100, num_generations=1000):
                 break
 
         if child_fit < fitness_max:
-
             population.loc[len(population)] = child
             population = population.drop(worst_idx).reset_index(drop=True)
-
 
             worst_idx = population['fitness'].idxmax()
             fitness_max = population.loc[worst_idx]['fitness']
@@ -195,14 +198,12 @@ def genetic_algorithm(pop_size=100, num_generations=1000):
     return population.loc[best_idx], min_fit_curr, min_fit
 
 
-a = genetic_algorithm(1000, 30_000)
-import csv
+a = genetic_algorithm(1000, 10_000)
 
 with open('my_list.csv', 'w', newline='') as file:
     writer = csv.writer(file)
     writer.writerow(a[0]['tour'])
 
-import seaborn as sns
 
 # Plotting the list
 sns.lineplot(data=a[2])
